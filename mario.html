@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Mario Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(#6495ED, #87CEEB);
+            font-family: 'Press Start 2P', cursive;
+        }
+        #game {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: url('https://i.imgur.com/QJ8yjtY.png') repeat-x;
+            background-size: auto 100%;
+            border: 4px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        #mario {
+            position: absolute;
+            width: 50px;
+            height: 70px;
+            background: url('https://i.imgur.com/oK3NlWh.png') no-repeat;
+            background-size: contain;
+            bottom: 40px;
+            left: 50px;
+            transition: transform 0.1s;
+        }
+        .mario-right {
+            transform: scaleX(1) !important;
+        }
+        .mario-left {
+            transform: scaleX(-1) !important;
+        }
+        #ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: url('https://i.imgur.com/tX0kZZD.png') repeat-x;
+            background-size: auto 100%;
+        }
+        .coin {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: url('https://i.imgur.com/8GQ5sEW.png') no-repeat;
+            background-size: contain;
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px #000;
+        }
+        #enemies {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: url('https://i.imgur.com/XQhGiY8.png') no-repeat;
+            background-size: contain;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game">
+        <div id="score">Score: 0</div>
+        <div id="mario"></div>
+        <div id="ground"></div>
+    </div>
+
+    <script>
+        const mario = document.getElementById('mario');
+        const gameContainer = document.getElementById('game');
+        const scoreElement = document.getElementById('score');
+        let posX = 50;
+        let posY = 0;
+        let velocityY = 0;
+        let isJumping = false;
+        let score = 0;
+        let facingRight = true;
+        
+        const GRAVITY = 0.8;
+        const JUMP_FORCE = -15;
+        const SPEED = 7;
+        
+        // Coin generation
+        function createCoin() {
+            const coin = document.createElement('div');
+            coin.className = 'coin';
+            coin.style.left = Math.random() * (gameContainer.offsetWidth - 30) + 'px';
+            coin.style.bottom = Math.random() * (gameContainer.offsetHeight - 100) + 70 + 'px';
+            gameContainer.appendChild(coin);
+            return coin;
+        }
+
+        // Enemy generation
+        function createEnemy() {
+            const enemy = document.createElement('div');
+            enemy.id = 'enemies';
+            enemy.style.left = gameContainer.offsetWidth + 'px';
+            enemy.style.bottom = '40px';
+            gameContainer.appendChild(enemy);
+            return enemy;
+        }
+
+        // Collision detection
+        function checkCollision(element1, element2) {
+            const rect1 = element1.getBoundingClientRect();
+            const rect2 = element2.getBoundingClientRect();
+            return !(rect1.right < rect2.left || 
+                    rect1.left > rect2.right || 
+                    rect1.bottom < rect2.top || 
+                    rect1.top > rect2.bottom);
+        }
+
+        // Generate initial coins
+        for(let i = 0; i < 5; i++) {
+            createCoin();
+        }
+
+        // Enemy movement
+        setInterval(() => {
+            const enemy = createEnemy();
+            let enemyPos = gameContainer.offsetWidth;
+            
+            const moveEnemy = setInterval(() => {
+                enemyPos -= 3;
+                enemy.style.left = enemyPos + 'px';
+                
+                if (checkCollision(mario, enemy)) {
+                    alert('Game Over! Score: ' + score);
+                    location.reload();
+                }
+                
+                if (enemyPos < -40) {
+                    clearInterval(moveEnemy);
+                    enemy.remove();
+                }
+            }, 20);
+        }, 3000);
+
+        document.addEventListener('keydown', (event) => {
+            switch(event.key) {
+                case ' ':
+                case 'ArrowUp':
+                    if (!isJumping) {
+                        velocityY = JUMP_FORCE;
+                        isJumping = true;
+                    }
+                    break;
+                case 'ArrowLeft':
+                    posX = Math.max(0, posX - SPEED);
+                    mario.classList.remove('mario-right');
+                    mario.classList.add('mario-left');
+                    facingRight = false;
+                    break;
+                case 'ArrowRight':
+                    posX = Math.min(gameContainer.offsetWidth - 50, posX + SPEED);
+                    mario.classList.remove('mario-left');
+                    mario.classList.add('mario-right');
+                    facingRight = true;
+                    break;
+            }
+            updateMarioPosition();
+        });
+
+        function gameLoop() {
+            if (isJumping) {
+                velocityY += GRAVITY;
+                posY += velocityY;
+
+                if (posY >= 0) {
+                    posY = 0;
+                    velocityY = 0;
+                    isJumping = false;
+                }
+            }
+
+            // Check coin collisions
+            document.querySelectorAll('.coin').forEach(coin => {
+                if (checkCollision(mario, coin)) {
+                    coin.remove();
+                    score += 10;
+                    scoreElement.textContent = 'Score: ' + score;
+                    createCoin();
+                }
+            });
+
+            updateMarioPosition();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateMarioPosition() {
+            mario.style.transform = `translate(${posX}px, ${posY}px) ${facingRight ? 'scaleX(1)' : 'scaleX(-1)'}`;
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
+
+
